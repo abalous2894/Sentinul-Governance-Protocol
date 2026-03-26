@@ -139,6 +139,6 @@ We consider responsible disclosure a collaborative act. Researchers acting withi
 | Channel | Address |
 |---|---|
 | Security advisories | GitHub Security Advisory (preferred) |
-| Security email | security@sentinul.dev |
+| Security email | contact@sentinul.app |
 
 *Sentinul Security Team — Los Angeles, CA*
