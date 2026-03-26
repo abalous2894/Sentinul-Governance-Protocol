@@ -509,7 +509,7 @@ The vault bridge fails loudly on initialization errors in production — it does
 Proprietary - Sentinul Security  
 © 2026 All rights reserved
 
-For licensing inquiries: security@sentinul.dev
+For licensing inquiries: contact@sentinul.app
 
 ---
 
