@@ -707,6 +707,8 @@ The vault bridge fails loudly on initialization errors in production — it does
 ---
 
 *Architected and Hardened in Los Angeles, California.*
+
 *Beyond Guardrails. Real-Time Sovereignty.*
+
 *Dedicated to the engineering spirit of Edward Vrona & the Hubble team.*
 
