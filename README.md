@@ -1,4 +1,4 @@
-# SENTINUL: SOVEREIGN SECURITY INFRASTRUCTURE
+# KOVERA: SOVEREIGN SECURITY INFRASTRUCTURE
 
 **Enterprise-Grade Enforcement for Autonomous AI Agents and Multi-Agent Systems**
 
@@ -12,7 +12,7 @@
 
 ## Overview
 
-Sentinul is a deterministic, multi-layer security enforcement platform for autonomous AI agents operating in production environments. The platform enforces a **Sovereign Workflow** — a non-negotiable operational contract where no agent action, LLM call, or MCP tool invocation can bypass the enforcement pipeline. Every operation is inspected, logged, and subject to fail-closed decisions.
+Kovera is a deterministic, multi-layer security enforcement platform for autonomous AI agents operating in production environments. The platform enforces a **Sovereign Workflow** — a non-negotiable operational contract where no agent action, LLM call, or MCP tool invocation can bypass the enforcement pipeline. Every operation is inspected, logged, and subject to fail-closed decisions.
 
 This is not a monitoring system. It is an enforcement system.
 
@@ -38,6 +38,14 @@ This is not a monitoring system. It is an enforcement system.
    - [Live Telemetry Dashboard](#live-telemetry-dashboard)
    - [Web dashboard, MFA, and settings](#web-dashboard-mfa-and-settings)
    - [Live Threat Feed (SSE)](#live-threat-feed-sse)
+   - [Kovera VFP workspace (verification lab)](#kovera-vfp-workspace-verification-lab)
+   - [Public sovereignty receipts (verify host)](#public-sovereignty-receipts-verify-host)
+   - [Compliance exports and auditor workflow](#compliance-exports-and-auditor-workflow)
+   - [Public verification APIs](#public-verification-apis)
+   - [Incoming webhooks](#incoming-webhooks)
+   - [Universal Shield and teaser scan (optional)](#universal-shield-and-teaser-scan-optional)
+   - [MCP IDE plugin (optional)](#mcp-ide-plugin-optional)
+   - [Monorepo and Docker Compose](#monorepo-and-docker-compose)
 5. [API Reference](#5-api-reference)
 6. [Security Mandate](#6-security-mandate)
 7. [Configuration](#7-configuration)
@@ -49,7 +57,7 @@ This is not a monitoring system. It is an enforcement system.
 
 Every LLM call, tool invocation, and agent action is forced through a **5-Layer Enforcement Gauntlet** before execution and again upon response. Layers execute sequentially; a block at any layer terminates the operation immediately and emits an immutable audit record. There is no bypass path.
 
-**Cryptographic accountability:** Enforcement decisions, delegated-action outcomes, and **human-in-the-loop (HITL)** releases are written into the **Aegis audit ledger** with hash-chained entries (Merkle-oriented binding per event). That design yields a **tamper-evident history**: the agent request, the Sentinul verdict, and (when applicable) the manager’s step-up approval are linked in a way that breaks forensic integrity if any single row is altered—not merely a conventional append-only SQL log.
+**Cryptographic accountability:** Enforcement decisions, delegated-action outcomes, and **human-in-the-loop (HITL)** releases are written into the **Aegis audit ledger** with hash-chained entries (Merkle-oriented binding per event). That design yields a **tamper-evident history**: the agent request, the Kovera verdict, and (when applicable) the manager’s step-up approval are linked in a way that breaks forensic integrity if any single row is altered—not merely a conventional append-only SQL log.
 
 ```
 INBOUND REQUEST
@@ -213,12 +221,12 @@ This is distinct from Skill Scanner (supply-chain / injection). FDLP targets **r
 
 ### Step-Up Authorization (HITL)
 
-Sentinul implements a **Human-in-the-Loop (HITL) gate** for high-risk **delegated** actions—patterns that matter for POS, fintech, and operations workflows where a kiosk or agent must not move money or void transactions beyond its **passport ceiling** without explicit human authority.
+Kovera implements a **Human-in-the-Loop (HITL) gate** for high-risk **delegated** actions—patterns that matter for POS, fintech, and operations workflows where a kiosk or agent must not move money or void transactions beyond its **passport ceiling** without explicit human authority.
 
 - **402 Payment Required (authority required):** When an invoke exceeds the delegated passport threshold (e.g. a **$500 void** with a **$50** ceiling), the gateway returns **`HTTP 402`** with a **`PENDING_APPROVAL`** verdict—not a silent deny. The body includes **`approval_request_id`** and **`correlation_id`** for binding the manager step-up to that single intent.
 - **Multi-role release:** A secondary party holding an elevated scoped role (e.g. **`MANAGER`** or **`ADMIN`**) must **`POST /api/v1/approvals/sign`** with their **manager passport `access_token`**. The broker verifies role and binds a **dual-signature** release to the pending row.
 - **One-shot consumption:** The release is **cryptographically bound** to the pending **`approval_request_id`** and is **consumed** when the kiosk retries the original invoke with **`hitl_approval_request_id`** set. Replays without a fresh pending row **fail closed**.
-- **Fail-closed:** Without a valid signed release, the delegated action **never** clears the gateway. Sentinul blocks business only by default; **authorized exceptions** are explicit, audited, and non-replayable.
+- **Fail-closed:** Without a valid signed release, the delegated action **never** clears the gateway. Kovera blocks business only by default; **authorized exceptions** are explicit, audited, and non-replayable.
 
 **Reference implementation:** internal Vanguard lab route **`POST /api/v1/internal/vanguard/pos-delegation/invoke`** (requires `INTERNAL_SERVICE_KEY`), approval broker in `private-backend/src/services/approval/approval-broker.js`, sign route in `private-backend/src/app.js`.
 
@@ -477,9 +485,9 @@ An `UNTRUSTED` verdict includes a `static_findings` array identifying detected s
 
 ### Live Telemetry Dashboard
 
-The Sovereign Dashboard provides real-time visibility into all enforcement activity across every layer.
+The **Kovera** telemetry dashboard provides real-time visibility into all enforcement activity across every layer.
 
-**Access:** `https://sentinul.app` (production) or `http://localhost:5173` (local development)
+**Access:** `https://app.kovera.tech` (production) or `http://localhost:5173` (local development)
 
 | Panel | Data Source | Purpose |
 |---|---|---|
@@ -515,7 +523,7 @@ High-signal governance event types (ledger / exports) include:
 
 ### Web dashboard, MFA, and settings
 
-The **Sentinul dashboard** (`sentinul-dashboard`) is the operator UI for login, Genesis telemetry, and account controls.
+The **Kovera dashboard** (`sentinul-dashboard`) is the operator UI for login, Genesis telemetry, and account controls.
 
 | Area | How to use |
 |---|---|
@@ -548,6 +556,98 @@ curl -sS -N -H "Accept: text/event-stream" \
 ```
 
 Event stream payloads include a `CONNECTED` heartbeat and `THREAT_SIGNAL` JSON objects consumed by `sentinul-dashboard` (`useLiveThreatFeed`).
+
+---
+
+### Kovera VFP workspace (verification lab)
+
+The **`kovera-vfp`** tab in the **Kovera operator dashboard** (`sentinul-dashboard`) exposes a client-side Verification-First Protocol workspace: ingress simulation (Portkey / AWS Bedrock / Azure APIM / custom), deterministic sovereignty receipts, and auditor-oriented exports.
+
+**How to use**
+
+1. Sign in → open **`Kovera VFP Workspace`** / **Verification protocol workspace** or open the dashboard with **`?tab=kovera-vfp`**.
+2. **Notarized Activity:** choose an ingress simulator → **Generate sovereign receipt**. The **Realtime notarization ledger** records policy fingerprints (**Policy (T)**) and **DecisionHash** anchors.
+3. **Trust Link:** **Copy** or **Verify** opens or copies a URL for **`verify-receipt.html`** (query params **`dh`**, **`pv`**, optional **`ts`**, **`st`**, integrity seal **`ig`**).
+4. **Pending Co-Signature:** rows can show **`PENDING_HUMAN_SIGN`**; **Approve via mock WebAuthn / IdP** simulates manager co-signing (replace with production WebAuthn / enterprise IdP in your deployment).
+5. **Compliance Workspace** sub-tab → **Prepare for auditor review:** Evidence-of-Care-style JSON-LD bundle plus legacy JSON manifest. From **Compliance & Evidence**, use **Open auditor wizard (VFP)** when available.
+6. **Global Threat Intelligence:** optional collective-defense summaries when Vanguard live telemetry is wired into the SPA.
+
+Optional cloud ingestion: the client calls **`POST {API_ORIGIN}/v1/kovera-vfp/receipts`** (and collective-defense routes under **`/v1/kovera-vfp/**`). If the API returns **404** or is unreachable, events stay **queued in the browser only** (`sentinul-dashboard/src/services/vfpEvidenceApi.js`).
+
+---
+
+### Public sovereignty receipts (verify host)
+
+Build static assets from **`sentinul-app-site/`**:
+
+```bash
+cd sentinul-app-site && npm install && npm run build
+```
+
+Publish **`dist/`** so **`verify-receipt.html`** is served at your public verifier origin (for example **`https://verify.kovera.tech`**). When building dashboard Trust Links, set **`VITE_PUBLIC_VERIFICATION_BASE_URL`** to that origin.
+
+---
+
+### Compliance exports and auditor workflow
+
+| Action | Endpoint / behavior |
+|--------|---------------------|
+| **Compliance summary** | **`GET /api/exports/compliance/summary`** and **`GET /api/v1/compliance/summary`** (same handler): JWT **`authenticate`** + **`requireGovernanceViewer`**. |
+| **Audit CSV** | **`GET /api/exports/audit-evidence/csv`** |
+| **Audit JSON** | **`GET /api/exports/audit-evidence/json`** — streaming downloads; **`requireOktaSso`** + **`requireGovernanceViewer`** when your tenant enforces Okta for these exports (see **`private-backend/src/routes/exportsRoutes.js`**). |
+
+Implementation: **`private-backend/src/services/reporting/ExportService.js`** and **`private-backend/src/routes/exportsRoutes.js`**.
+
+---
+
+### Public verification APIs
+
+| Endpoint | Purpose |
+|---------|---------|
+| **`POST /api/v1/public/verify-receipt`** | Server-assisted receipt verification (**`public-verify-receipt`** limiter in **`app.js`**). |
+| **`GET /api/v1/public/demo/verify/:entryHash`** | Read-style demo lookup by ledger hash. |
+
+Auditors may also use richer routes under **`/api/v1/governance/verify*`** (**`governanceReportRoutes.js`**) depending on JWT / governance RBAC (**e.g. `GET /api/v1/governance/verify/:entryHash`**, **`POST /api/v1/governance/verify-entry`**).
+
+---
+
+### Incoming webhooks
+
+| Mount | Notes |
+|-------|-------|
+| **`POST /api/webhooks/stripe`** | Stripe Checkout — **`STRIPE_WEBHOOK_SECRET`** + **`STRIPE_SECRET_KEY`**; Stripe posts **`application/json`** to this URL (**raw body** verifier). **`private-backend/src/routes/webhooks.js`**. |
+| **`POST /api/webhooks/github`** / **`POST /api/webhooks/gitlab`** | **`private-backend/src/routes/webhookRoutes.js`** |
+| **`POST /api/webhooks/circleci`** | Authenticated CircleCI callers (**`webhookRoutes.js`**). |
+
+---
+
+### Universal Shield and teaser scan (optional)
+
+| Capability | Entry | Prerequisites |
+|-----------|-------|----------------|
+| **Universal Shield (V4 remediate)** | **`POST /api/v4/remediate/create-pr`** (`private-backend/src/routes/v4RemediateRoutes.js`) | **`ENABLE_V4=true`** and **PRO+** tier (**`v4FeatureGate`**, **`checkTier`**). |
+| **Public teaser scan** | **`POST /api/v1/public/scan-skill`** and **`GET /api/v1/public/scan-skill/info`** | No JWT — strict **`express-rate-limit`** — responses are sanitized/teaser-only (**`publicScanRoutes.js`**). Body shaped like **`{ "code": "...", "language": "javascript" }`**. |
+
+---
+
+### MCP IDE plugin (optional)
+
+```bash
+cd public-mcp-plugin && npm install
+```
+
+See **`public-mcp-plugin/README.md`**. MCP governance SSE for hosted MCP remains **`GET /api/mcp/sse`** behind MCP authentication.
+
+---
+
+### Monorepo and Docker Compose
+
+```bash
+# repository root
+docker compose up --build
+```
+
+See root **`docker-compose.yml`** and **`README.md`** for layout (`private-backend/`, `sentinul-dashboard/`, `sentinul-app-site/`, `public-mcp-plugin/`, etc.).
 
 ---
 
@@ -603,13 +703,31 @@ Event stream payloads include a `CONNECTED` heartbeat and `THREAT_SIGNAL` JSON o
 
 > **Internal routes** require the `X-Internal-Service-Key` header ( **`INTERNAL_SERVICE_KEY`** ) and are not intended for browser exposure. The key is validated with a constant-time comparison to prevent timing-based enumeration. **`INTERNAL_SERVICE_KEY`** is **required** at server startup alongside `JWT_SECRET` and `ENCRYPTION_KEY`—it is the control-plane credential for mint, passport, approvals, and `/api/v1/internal/*` gates.
 
+### Governance exports, verifier, and teaser scan (supplementary)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/exports/compliance/summary` | Aggregate compliance snapshot (JWT + governance viewer) |
+| `GET` | `/api/v1/compliance/summary` | Same snapshot under `/api/v1/compliance` |
+| `GET` | `/api/exports/audit-evidence/csv` | Stream audit-evidence CSV (Okta SSO + viewer when enforced) |
+| `GET` | `/api/exports/audit-evidence/json` | Stream audit-evidence JSON |
+| `POST` | `/api/v1/public/verify-receipt` | Public receipt verifier |
+| `GET` | `/api/v1/public/demo/verify/:entryHash` | Demo hash lookup |
+| `GET` | `/api/v1/governance/verify/:entryHash` | Governance viewer hash lookup |
+| `POST` | `/api/v1/governance/verify-entry` | Verify by posted `entryHash` |
+| `POST` | `/api/v4/remediate/create-pr` | Universal Shield PR creation (**`ENABLE_V4`**, tier-gated) |
+| `POST` | `/api/v1/public/scan-skill` | Rate-limited teaser scan |
+| `GET` | `/api/v1/public/scan-skill/info` | Teaser scanner metadata |
+
+Dashboard-only optional ingestion (**`POST /v1/kovera-vfp/receipts`** and sibling **`/v1/kovera-vfp/*`** routes) applies when you deploy bespoke backends aligned with **`vfpEvidenceApi.js`**; otherwise the SPA **queues locally**.
+
 ---
 
 ## 6. Security Mandate
 
 ### Zero-Trust by Architecture
 
-Sentinul operates on the principle that no agent, tool, or LLM provider is trusted by default. Trust is not established at connection time — it is re-evaluated at every layer, on every call.
+Kovera operates on the principle that no agent, tool, or LLM provider is trusted by default. Trust is not established at connection time — it is re-evaluated at every layer, on every call.
 
 The enforcement pipeline is:
 
@@ -621,7 +739,7 @@ The enforcement pipeline is:
 
 ### Immutable accountability (Merkle-chain audit)
 
-Every enforcement decision is bound into the **Aegis audit ledger** using **per-entry hashing and signatures** and **Merkle-style chaining** (e.g. Vanguard / lab simulations expose roots for verification). That yields a **cryptographically verifiable history** in which the **agent request**, the **Sentinul verdict**, and—when step-up applies—the **manager HITL approval** are linked in the same tamper-evident stream. **Altering a single log entry invalidates the chain** for downstream verification, which supports **forensic integrity** and regulatory-style audit narratives beyond a plain SQL append log.
+Every enforcement decision is bound into the **Aegis audit ledger** using **per-entry hashing and signatures** and **Merkle-style chaining** (e.g. Vanguard / lab simulations expose roots for verification). That yields a **cryptographically verifiable history** in which the **agent request**, the **Kovera verdict**, and—when step-up applies—the **manager HITL approval** are linked in the same tamper-evident stream. **Altering a single log entry invalidates the chain** for downstream verification, which supports **forensic integrity** and regulatory-style audit narratives beyond a plain SQL append log.
 
 ### Sovereign Workflow
 
@@ -707,8 +825,5 @@ The vault bridge fails loudly on initialization errors in production — it does
 ---
 
 *Architected and Hardened in Los Angeles, California.*
-
 *Beyond Guardrails. Real-Time Sovereignty.*
-
 *Dedicated to the engineering spirit of Edward Vrona & the Hubble team.*
-
