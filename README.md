@@ -12,7 +12,7 @@
 
 ## Overview
 
-Kovera is a deterministic, multi-layer security enforcement platform for autonomous AI agents operating in production environments. The platform enforces a **Sovereign Workflow** — a non-negotiable operational contract where no agent action, LLM call, or MCP tool invocation can bypass the enforcement pipeline. Every operation is inspected, logged, and subject to fail-closed decisions.
+**Kovera** (formerly *Sentinul*) is a deterministic, multi-layer security enforcement platform for autonomous AI agents operating in production environments. The platform enforces a **Sovereign Workflow** — a non-negotiable operational contract where no agent action, LLM call, or MCP tool invocation can bypass the enforcement pipeline. Every operation is inspected, logged, and subject to fail-closed decisions.
 
 This is not a monitoring system. It is an enforcement system.
 
@@ -35,20 +35,15 @@ This is not a monitoring system. It is an enforcement system.
    - [Non-LLM Genesis scan (FDLP)](#non-llm-genesis-scan-fdlp-only)
    - [The HITL approval flow (step-up)](#the-hitl-approval-flow-step-up)
    - [Tool Registration and Skill Scanning](#tool-registration-and-skill-scanning)
+   - [Public sovereignty verification (receipt portal)](#public-sovereignty-verification-receipt-portal)
+   - [Kovera MCP plugin (connectivity check)](#kovera-mcp-plugin-connectivity-check)
    - [Live Telemetry Dashboard](#live-telemetry-dashboard)
    - [Web dashboard, MFA, and settings](#web-dashboard-mfa-and-settings)
    - [Live Threat Feed (SSE)](#live-threat-feed-sse)
-   - [Kovera VFP workspace (verification lab)](#kovera-vfp-workspace-verification-lab)
-   - [Public sovereignty receipts (verify host)](#public-sovereignty-receipts-verify-host)
-   - [Compliance exports and auditor workflow](#compliance-exports-and-auditor-workflow)
-   - [Public verification APIs](#public-verification-apis)
-   - [Incoming webhooks](#incoming-webhooks)
-   - [Universal Shield and teaser scan (optional)](#universal-shield-and-teaser-scan-optional)
-   - [MCP IDE plugin (optional)](#mcp-ide-plugin-optional)
-   - [Monorepo and Docker Compose](#monorepo-and-docker-compose)
 5. [API Reference](#5-api-reference)
 6. [Security Mandate](#6-security-mandate)
 7. [Configuration](#7-configuration)
+   - [Kovera vs. legacy environment variables (dual-read)](#kovera-vs-legacy-environment-variables-dual-read)
 8. [BYOK (Bring Your Own Key)](#8-byok-bring-your-own-key)
 
 ---
@@ -57,7 +52,7 @@ This is not a monitoring system. It is an enforcement system.
 
 Every LLM call, tool invocation, and agent action is forced through a **5-Layer Enforcement Gauntlet** before execution and again upon response. Layers execute sequentially; a block at any layer terminates the operation immediately and emits an immutable audit record. There is no bypass path.
 
-**Cryptographic accountability:** Enforcement decisions, delegated-action outcomes, and **human-in-the-loop (HITL)** releases are written into the **Aegis audit ledger** with hash-chained entries (Merkle-oriented binding per event). That design yields a **tamper-evident history**: the agent request, the Kovera verdict, and (when applicable) the manager’s step-up approval are linked in a way that breaks forensic integrity if any single row is altered—not merely a conventional append-only SQL log.
+**Cryptographic accountability:** Enforcement decisions, delegated-action outcomes, and **human-in-the-loop (HITL)** releases are written into the **Aegis audit ledger** with hash-chained entries (Merkle-oriented binding per event). That design yields a **tamper-evident history**: the agent request, the Kovera verdict, and (when applicable) the manager's step-up approval are linked in a way that breaks forensic integrity if any single row is altered—not merely a conventional append-only SQL log.
 
 ```
 INBOUND REQUEST
@@ -273,7 +268,7 @@ This runs `scripts/vanguard-hitl-override.mjs`: kiosk passport → **402** pendi
 ### Dashboard
 
 ```bash
-cd sentinul-dashboard
+cd sentinul-dashboard   # repository package name; Kovera dashboard frontend
 npm install
 # Optional: echo 'VITE_API_URL=http://localhost:3000' > .env.local
 npm run dev
@@ -283,14 +278,14 @@ npm run dev
 ### Docker (Production)
 
 ```bash
-docker build -t sentinul:genesis .
+docker build -t kovera:genesis .
 docker run -d \
-  --name sentinul \
+  --name kovera \
   -p 5000:5000 \
   -e JWT_SECRET="..." \
   -e INTERNAL_SERVICE_KEY="..." \
   -e ENCRYPTION_KEY="..." \
-  sentinul:genesis
+  kovera:genesis
 ```
 
 ---
@@ -353,18 +348,18 @@ curl -X POST https://your-backend/api/v1/genesis/proxy/call \
 ### FinTech FDLP configuration and behavior
 
 1. **Choose or edit packs** in `private-backend/fintech-policy-packs.yaml` (`prompt_action` / `response_action` / `categories` per pack).
-2. **Activate a pack** with environment variables (see also `private-backend/.env.example`):
+2. **Activate a pack** with environment variables. Prefer **`KOVERA_*`** names; legacy **`SENTINUL_*`** names are still read with a one-time deprecation warning (see [§7 Kovera vs. legacy environment variables](#kovera-vs-legacy-environment-variables-dual-read) and `MIGRATION.md` at repo root).
 
 | Variable | Purpose |
 |---|---|
-| `SENTINUL_FINTECH_POLICY_PACK` | Pack id (e.g. `customer_support_copilot`, `internal_ops_strict`). Overrides YAML `default_active_pack` when set. |
-| `SENTINUL_FDLP_ENABLED` | Set to `0` / `false` to force FDLP off even if a pack is selected. |
-| `SENTINUL_FDLP_PROMPT_ACTION` | Optional override: `block` \| `redact` \| `log_only` |
-| `SENTINUL_FDLP_RESPONSE_ACTION` | Optional override: `block` \| `redact` \| `log_only` |
-| `SENTINUL_FDLP_MAX_SCAN_CHARS` | Cap scanned characters (bounded in code). |
-| `SENTINUL_FINTECH_POLICY_PACKS_PATH` | Absolute path to an alternate YAML packs file. |
+| `KOVERA_FINTECH_POLICY_PACK` | Pack id (e.g. `customer_support_copilot`, `internal_ops_strict`). Overrides YAML `default_active_pack` when set. *Legacy:* `SENTINUL_FINTECH_POLICY_PACK` |
+| `KOVERA_FDLP_ENABLED` | Set to `0` / `false` to force FDLP off even if a pack is selected. *Legacy:* `SENTINUL_FDLP_ENABLED` |
+| `KOVERA_FDLP_PROMPT_ACTION` | Optional override: `block` \| `redact` \| `log_only`. *Legacy:* `SENTINUL_FDLP_PROMPT_ACTION` |
+| `KOVERA_FDLP_RESPONSE_ACTION` | Optional override: `block` \| `redact` \| `log_only`. *Legacy:* `SENTINUL_FDLP_RESPONSE_ACTION` |
+| `KOVERA_FDLP_MAX_SCAN_CHARS` | Cap scanned characters (bounded in code). *Legacy:* `SENTINUL_FDLP_MAX_SCAN_CHARS` |
+| `KOVERA_FINTECH_POLICY_PACKS_PATH` | Absolute path to an alternate YAML packs file. *Legacy:* `SENTINUL_FINTECH_POLICY_PACKS_PATH` |
 
-With **`default_active_pack: off`** and no `SENTINUL_FINTECH_POLICY_PACK`, FDLP does not run. When active, proxy statistics include FDLP-related counters in the adapter’s internal stats (see `llm-proxy-adapter.js`).
+With **`default_active_pack: off`** and no active pack env set, FDLP does not run. When active, proxy statistics include FDLP-related counters in the adapter’s internal stats (see `llm-proxy-adapter.js`).
 
 ---
 
@@ -483,11 +478,42 @@ An `UNTRUSTED` verdict includes a `static_findings` array identifying detected s
 
 ---
 
+### Public sovereignty verification (receipt portal)
+
+Operators and auditors can verify **Kovera sovereignty receipts** (and compatible legacy exports) without logging in:
+
+- **Dashboard route:** open **`/verify`** on the dashboard app (e.g. `https://app.kovera.tech/verify` in production, or `http://localhost:5173/verify` locally after `npm run dev` in `sentinul-dashboard`).
+- **Behavior:** upload a `.json` receipt; the UI calls **`POST /v1/public/verify-receipt`** on the configured API origin. The server returns structured verification (including **`HASH_MISMATCH`** and tamper-oriented copy when integrity checks fail). The portal surfaces clear **invalid / tamper / mismatch** messaging instead of a generic crash.
+- **Optional:** Merkle / public-truth panels on the same page can bind receipts to ledger anchors when your deployment exposes the corresponding public routes.
+
+For CI and regression testing, the dashboard includes Playwright coverage for both a golden-path verify and a **tampered-receipt** failure path (`e2e/verification-failure.spec.js`).
+
+---
+
+### Kovera MCP plugin (connectivity check)
+
+The **`@kovera/mcp-server`** package installs the **`kovera-mcp`** CLI (legacy binary name **`sentinul`** may still appear on older PATH entries).
+
+After **`kovera-mcp setup`** (or with **`API_BASE`** set to your backend root or `.../api` as documented in setup), validate wiring before opening Claude Desktop:
+
+```bash
+kovera-mcp --check
+```
+
+This command:
+
+1. **GET** **`/api/auth/health`** on the resolved backend (from **`API_BASE`** / `config.json` **`backendUrl`**).
+2. Validates the local **Aegis identity file** **`aegis-identities.json`** under **`KOVERA_MCP_DATA_DIR`**, or under the legacy default **`~/.config/sentinul/`** when the override is unset.
+
+Exit code **`0`** means both checks passed; non-zero prints a concrete error (unreachable API, HTTP failure, or missing/invalid identity JSON). Use **`kovera-mcp --help`** for all CLI options.
+
+---
+
 ### Live Telemetry Dashboard
 
-The **Kovera** telemetry dashboard provides real-time visibility into all enforcement activity across every layer.
+The Sovereign Dashboard provides real-time visibility into all enforcement activity across every layer.
 
-**Access:** `https://app.kovera.tech` (production) or `http://localhost:5173` (local development)
+**Access:** **`https://app.kovera.tech`** (primary production dashboard), **`https://kovera.tech`** (marketing / apex where deployed), or **`http://localhost:5173`** (local development). Legacy hostnames (e.g. `sentinul.app`) may still redirect during migration—prefer the **kovera.tech** hosts for new links.
 
 | Panel | Data Source | Purpose |
 |---|---|---|
@@ -523,7 +549,7 @@ High-signal governance event types (ledger / exports) include:
 
 ### Web dashboard, MFA, and settings
 
-The **Kovera dashboard** (`sentinul-dashboard`) is the operator UI for login, Genesis telemetry, and account controls.
+The **Kovera dashboard** (repository folder `sentinul-dashboard`) is the operator UI for login, Genesis telemetry, and account controls.
 
 | Area | How to use |
 |---|---|
@@ -555,99 +581,7 @@ curl -sS -N -H "Accept: text/event-stream" \
   "https://your-backend/api/v1/genesis/threats/stream?access_token=<JWT>"
 ```
 
-Event stream payloads include a `CONNECTED` heartbeat and `THREAT_SIGNAL` JSON objects consumed by `sentinul-dashboard` (`useLiveThreatFeed`).
-
----
-
-### Kovera VFP workspace (verification lab)
-
-The **`kovera-vfp`** tab in the **Kovera operator dashboard** (`sentinul-dashboard`) exposes a client-side Verification-First Protocol workspace: ingress simulation (Portkey / AWS Bedrock / Azure APIM / custom), deterministic sovereignty receipts, and auditor-oriented exports.
-
-**How to use**
-
-1. Sign in → open **`Kovera VFP Workspace`** / **Verification protocol workspace** or open the dashboard with **`?tab=kovera-vfp`**.
-2. **Notarized Activity:** choose an ingress simulator → **Generate sovereign receipt**. The **Realtime notarization ledger** records policy fingerprints (**Policy (T)**) and **DecisionHash** anchors.
-3. **Trust Link:** **Copy** or **Verify** opens or copies a URL for **`verify-receipt.html`** (query params **`dh`**, **`pv`**, optional **`ts`**, **`st`**, integrity seal **`ig`**).
-4. **Pending Co-Signature:** rows can show **`PENDING_HUMAN_SIGN`**; **Approve via mock WebAuthn / IdP** simulates manager co-signing (replace with production WebAuthn / enterprise IdP in your deployment).
-5. **Compliance Workspace** sub-tab → **Prepare for auditor review:** Evidence-of-Care-style JSON-LD bundle plus legacy JSON manifest. From **Compliance & Evidence**, use **Open auditor wizard (VFP)** when available.
-6. **Global Threat Intelligence:** optional collective-defense summaries when Vanguard live telemetry is wired into the SPA.
-
-Optional cloud ingestion: the client calls **`POST {API_ORIGIN}/v1/kovera-vfp/receipts`** (and collective-defense routes under **`/v1/kovera-vfp/**`). If the API returns **404** or is unreachable, events stay **queued in the browser only** (`sentinul-dashboard/src/services/vfpEvidenceApi.js`).
-
----
-
-### Public sovereignty receipts (verify host)
-
-Build static assets from **`sentinul-app-site/`**:
-
-```bash
-cd sentinul-app-site && npm install && npm run build
-```
-
-Publish **`dist/`** so **`verify-receipt.html`** is served at your public verifier origin (for example **`https://verify.kovera.tech`**). When building dashboard Trust Links, set **`VITE_PUBLIC_VERIFICATION_BASE_URL`** to that origin.
-
----
-
-### Compliance exports and auditor workflow
-
-| Action | Endpoint / behavior |
-|--------|---------------------|
-| **Compliance summary** | **`GET /api/exports/compliance/summary`** and **`GET /api/v1/compliance/summary`** (same handler): JWT **`authenticate`** + **`requireGovernanceViewer`**. |
-| **Audit CSV** | **`GET /api/exports/audit-evidence/csv`** |
-| **Audit JSON** | **`GET /api/exports/audit-evidence/json`** — streaming downloads; **`requireOktaSso`** + **`requireGovernanceViewer`** when your tenant enforces Okta for these exports (see **`private-backend/src/routes/exportsRoutes.js`**). |
-
-Implementation: **`private-backend/src/services/reporting/ExportService.js`** and **`private-backend/src/routes/exportsRoutes.js`**.
-
----
-
-### Public verification APIs
-
-| Endpoint | Purpose |
-|---------|---------|
-| **`POST /api/v1/public/verify-receipt`** | Server-assisted receipt verification (**`public-verify-receipt`** limiter in **`app.js`**). |
-| **`GET /api/v1/public/demo/verify/:entryHash`** | Read-style demo lookup by ledger hash. |
-
-Auditors may also use richer routes under **`/api/v1/governance/verify*`** (**`governanceReportRoutes.js`**) depending on JWT / governance RBAC (**e.g. `GET /api/v1/governance/verify/:entryHash`**, **`POST /api/v1/governance/verify-entry`**).
-
----
-
-### Incoming webhooks
-
-| Mount | Notes |
-|-------|-------|
-| **`POST /api/webhooks/stripe`** | Stripe Checkout — **`STRIPE_WEBHOOK_SECRET`** + **`STRIPE_SECRET_KEY`**; Stripe posts **`application/json`** to this URL (**raw body** verifier). **`private-backend/src/routes/webhooks.js`**. |
-| **`POST /api/webhooks/github`** / **`POST /api/webhooks/gitlab`** | **`private-backend/src/routes/webhookRoutes.js`** |
-| **`POST /api/webhooks/circleci`** | Authenticated CircleCI callers (**`webhookRoutes.js`**). |
-
----
-
-### Universal Shield and teaser scan (optional)
-
-| Capability | Entry | Prerequisites |
-|-----------|-------|----------------|
-| **Universal Shield (V4 remediate)** | **`POST /api/v4/remediate/create-pr`** (`private-backend/src/routes/v4RemediateRoutes.js`) | **`ENABLE_V4=true`** and **PRO+** tier (**`v4FeatureGate`**, **`checkTier`**). |
-| **Public teaser scan** | **`POST /api/v1/public/scan-skill`** and **`GET /api/v1/public/scan-skill/info`** | No JWT — strict **`express-rate-limit`** — responses are sanitized/teaser-only (**`publicScanRoutes.js`**). Body shaped like **`{ "code": "...", "language": "javascript" }`**. |
-
----
-
-### MCP IDE plugin (optional)
-
-```bash
-cd public-mcp-plugin && npm install
-```
-
-See **`public-mcp-plugin/README.md`**. MCP governance SSE for hosted MCP remains **`GET /api/mcp/sse`** behind MCP authentication.
-
----
-
-### Monorepo and Docker Compose
-
-```bash
-# repository root
-docker compose up --build
-```
-
-See root **`docker-compose.yml`** and **`README.md`** for layout (`private-backend/`, `sentinul-dashboard/`, `sentinul-app-site/`, `public-mcp-plugin/`, etc.).
+Event stream payloads include a `CONNECTED` heartbeat and `THREAT_SIGNAL` JSON objects consumed by the Kovera dashboard package (`sentinul-dashboard`, hook `useLiveThreatFeed`).
 
 ---
 
@@ -703,24 +637,6 @@ See root **`docker-compose.yml`** and **`README.md`** for layout (`private-backe
 
 > **Internal routes** require the `X-Internal-Service-Key` header ( **`INTERNAL_SERVICE_KEY`** ) and are not intended for browser exposure. The key is validated with a constant-time comparison to prevent timing-based enumeration. **`INTERNAL_SERVICE_KEY`** is **required** at server startup alongside `JWT_SECRET` and `ENCRYPTION_KEY`—it is the control-plane credential for mint, passport, approvals, and `/api/v1/internal/*` gates.
 
-### Governance exports, verifier, and teaser scan (supplementary)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/exports/compliance/summary` | Aggregate compliance snapshot (JWT + governance viewer) |
-| `GET` | `/api/v1/compliance/summary` | Same snapshot under `/api/v1/compliance` |
-| `GET` | `/api/exports/audit-evidence/csv` | Stream audit-evidence CSV (Okta SSO + viewer when enforced) |
-| `GET` | `/api/exports/audit-evidence/json` | Stream audit-evidence JSON |
-| `POST` | `/api/v1/public/verify-receipt` | Public receipt verifier |
-| `GET` | `/api/v1/public/demo/verify/:entryHash` | Demo hash lookup |
-| `GET` | `/api/v1/governance/verify/:entryHash` | Governance viewer hash lookup |
-| `POST` | `/api/v1/governance/verify-entry` | Verify by posted `entryHash` |
-| `POST` | `/api/v4/remediate/create-pr` | Universal Shield PR creation (**`ENABLE_V4`**, tier-gated) |
-| `POST` | `/api/v1/public/scan-skill` | Rate-limited teaser scan |
-| `GET` | `/api/v1/public/scan-skill/info` | Teaser scanner metadata |
-
-Dashboard-only optional ingestion (**`POST /v1/kovera-vfp/receipts`** and sibling **`/v1/kovera-vfp/*`** routes) applies when you deploy bespoke backends aligned with **`vfpEvidenceApi.js`**; otherwise the SPA **queues locally**.
-
 ---
 
 ## 6. Security Mandate
@@ -761,6 +677,24 @@ This is intentional. An adversary who can enumerate detection thresholds can opt
 
 ## 7. Configuration
 
+### Kovera vs. legacy environment variables (dual-read)
+
+The backend and tooling **prefer `KOVERA_*` variables**. If a Kovera key is unset, the runtime falls back to the legacy **`SENTINUL_*`** name and emits a **one-time `console.warn`** that the legacy key is deprecated (see **`MIGRATION.md`** in the repository root for the full map and timeline).
+
+Examples (non-exhaustive):
+
+| Kovera (preferred) | Legacy (still honored) |
+|---|---|
+| `KOVERA_TIER` | `SENTINUL_TIER` |
+| `KOVERA_API_KEY` | `SENTINUL_API_KEY` (e.g. tools / `private-backend/tools/server.mjs`) |
+| `KOVERA_PASSPORT_SECRET` | `SENTINUL_PASSPORT_SECRET` |
+| `KOVERA_PASSPORT_ENFORCE` | `SENTINUL_PASSPORT_ENFORCE` |
+| `KOVERA_APP_SITE_PATH` | `SENTINUL_APP_SITE_PATH` (marketing static root) |
+| `KOVERA_BYOK_ID` | `SENTINUL_BYOK_ID` |
+| `KOVERA_FDLP_*` / `KOVERA_FINTECH_*` | `SENTINUL_FDLP_*` / `SENTINUL_FINTECH_*` |
+
+If both are set to **different** values, **Kovera wins** and a one-time conflict warning is logged.
+
 ### Required Environment Variables
 
 | Variable | Minimum | Purpose |
@@ -789,7 +723,7 @@ node -e "const c=require('crypto'); console.log(c.randomBytes(64).toString('hex'
 | `SIEM_ENDPOINT_URL` / `SIEM_AUTH_TOKEN` | Optional batch forwarder for Aegis-shaped SIEM posts (`siemService.js`) |
 | `ENTERPRISE_TELEMETRY_WEBHOOK_URL` | Optional customer webhook for `sentinul-enterprise-telemetry/v1` (uses `X-Internal-Service-Key`) |
 | `GENESIS_API_PUBLIC` | If `1`, relaxes production JWT requirement on `/api/v1/genesis/*` (and similar flags for `/api/v1/skills`, `/gavel`). **Avoid on public internet.** |
-| `SENTINUL_FINTECH_POLICY_PACK` / `SENTINUL_FDLP_*` | FinTech FDLP — see [§4 FinTech FDLP configuration](#fintech-fdlp-configuration-and-behavior) and `private-backend/.env.example` |
+| `KOVERA_FINTECH_POLICY_PACK` / `KOVERA_FDLP_*` | FinTech FDLP — prefer these; legacy `SENTINUL_*` names still work — see [§4 FinTech FDLP configuration](#fintech-fdlp-configuration-and-behavior) and `private-backend/.env.example` |
 | `TURNSTILE_SITE_KEY` | Cloudflare Turnstile **site** key (exposed to browser via `/api/auth/turnstile-key` or dashboard env) |
 | `TURNSTILE_SECRET_KEY` | Turnstile **secret** (server-only; verifies `cf-turnstile-response` on login/register) |
 | `SKIP_TURNSTILE` | When `true` **and** `NODE_ENV !== production`, skips Turnstile verification (local QA only) |
@@ -811,7 +745,9 @@ If keys are unavailable in production, startup emits a CRITICAL warning. In deve
 
 ## 8. BYOK (Bring Your Own Key)
 
-The BYOK Vault enables enterprise operators to supply Customer-Managed Keys (CMK) for at-rest encryption of audit records and evidence vault entries. The vault bridge reads configuration from `.sentinulrc` on startup.
+The BYOK Vault enables enterprise operators to supply Customer-Managed Keys (CMK) for at-rest encryption of audit records and evidence vault entries. The vault bridge reads configuration from **`.sentinulrc`** at startup (legacy filename retained on disk for compatibility—paths and blocks are unchanged).
+
+You can also inject a key id via **`KOVERA_BYOK_ID`** (preferred) or legacy **`SENTINUL_BYOK_ID`** when no rc file is present (e.g. Docker).
 
 ```yaml
 # .sentinulrc
